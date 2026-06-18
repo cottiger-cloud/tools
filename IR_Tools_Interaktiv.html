@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IR-Framework: Tool-Integration | Christoph Ottiger</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; background: #f5f5f3; color: #222; min-height: 100vh; padding: 2rem 1rem; }
+  .container { max-width: 980px; margin: 0 auto; }
+
+  h1 { font-size: 20px; font-weight: 600; color: #1F4E79; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: #888; font-style: italic; margin-bottom: 1.75rem; }
+
+  /* GRID LAYOUT */
+  .fw-grid { display: grid; grid-template-columns: 80px repeat(4, 1fr); gap: 8px; align-items: center; margin-bottom: 6px; }
+  .row-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #aaa; text-align: right; padding-right: 8px; }
+
+  /* PHASE HEADERS */
+  .phase-header { border-radius: 10px; padding: 12px 8px; text-align: center; cursor: default; }
+  .phase-header .pnum { font-size: 10px; font-weight: 600; letter-spacing: 0.05em; margin-bottom: 3px; }
+  .phase-header .ptitle { font-size: 13px; font-weight: 600; }
+  .phase-header .psub { font-size: 11px; margin-top: 2px; }
+
+  .ph1 { background: #E1F5EE; border: 1.5px solid #0F6E56; }
+  .ph1 .pnum { color: #0F6E56; } .ph1 .ptitle { color: #085041; } .ph1 .psub { color: #0F6E56; }
+  .ph2 { background: #E6F1FB; border: 1.5px solid #185FA5; }
+  .ph2 .pnum { color: #185FA5; } .ph2 .ptitle { color: #0C447C; } .ph2 .psub { color: #185FA5; }
+  .ph3 { background: #FAEEDA; border: 1.5px solid #854F0B; }
+  .ph3 .pnum { color: #854F0B; } .ph3 .ptitle { color: #633806; } .ph3 .psub { color: #854F0B; }
+  .ph4 { background: #EEEDFE; border: 1.5px solid #534AB7; }
+  .ph4 .pnum { color: #534AB7; } .ph4 .ptitle { color: #3C3489; } .ph4 .psub { color: #534AB7; }
+
+  /* ARROWS between phases */
+  .phase-arrow { text-align: center; font-size: 18px; color: #bbb; }
+
+  /* CLICKABLE BOXES */
+  .box {
+    border-radius: 8px; padding: 9px 10px; text-align: center; cursor: pointer;
+    border: 1px solid #ddd; background: #fff; font-size: 12px; color: #555;
+    transition: box-shadow 0.15s, transform 0.1s, border-color 0.15s;
+    position: relative; line-height: 1.3;
+  }
+  .box:hover { box-shadow: 0 2px 10px rgba(0,0,0,0.1); transform: translateY(-1px); border-color: #aaa; }
+  .box .box-sub { font-size: 10px; color: #999; margin-top: 2px; }
+  .box .info-dot { position: absolute; top: 5px; right: 7px; width: 6px; height: 6px; border-radius: 50%; background: #ccc; }
+
+  /* KI boxes colored */
+  .ki-box { font-weight: 600; }
+  .ki1 { background: #E1F5EE; border-color: #9FE1CB; color: #085041; }
+  .ki1 .info-dot { background: #0F6E56; } .ki1:hover { border-color: #0F6E56; }
+  .ki2 { background: #E6F1FB; border-color: #A8CEFA; color: #0C447C; }
+  .ki2 .info-dot { background: #185FA5; } .ki2:hover { border-color: #185FA5; }
+  .ki3 { background: #FAEEDA; border-color: #F0C98A; color: #633806; }
+  .ki3 .info-dot { background: #854F0B; } .ki3:hover { border-color: #854F0B; }
+  .ki4 { background: #EEEDFE; border-color: #C4C0F5; color: #3C3489; }
+  .ki4 .info-dot { background: #534AB7; } .ki4:hover { border-color: #534AB7; }
+
+  /* Output boxes colored */
+  .out1 { background: #E1F5EE; border-color: #9FE1CB; color: #085041; font-weight: 600; }
+  .out1:hover { border-color: #0F6E56; }
+  .out2 { background: #E6F1FB; border-color: #A8CEFA; color: #0C447C; font-weight: 600; }
+  .out2:hover { border-color: #185FA5; }
+  .out3 { background: #FAEEDA; border-color: #F0C98A; color: #633806; font-weight: 600; }
+  .out3:hover { border-color: #854F0B; }
+  .out4 { background: #EEEDFE; border-color: #C4C0F5; color: #3C3489; font-weight: 600; }
+  .out4:hover { border-color: #534AB7; }
+
+  /* BASE ROW */
+  .base-grid { display: grid; grid-template-columns: 80px 1fr 1fr; gap: 8px; align-items: center; margin-top: 6px; }
+  .base-box { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 10px 14px; cursor: pointer; transition: box-shadow 0.15s, transform 0.1s; }
+  .base-box:hover { box-shadow: 0 2px 10px rgba(0,0,0,0.1); transform: translateY(-1px); border-color: #aaa; }
+  .base-box .bt { font-size: 12px; font-weight: 600; color: #222; margin-bottom: 2px; }
+  .base-box .bs { font-size: 11px; color: #888; }
+
+  /* SEPARATOR */
+  .sep { border: none; border-top: 1px dashed #ddd; margin: 10px 0; grid-column: 1 / -1; }
+
+  /* LEGEND */
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 16px; font-size: 11px; color: #777; align-items: center; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 3px; border: 1.5px solid; display: inline-block; margin-right: 4px; vertical-align: middle; }
+  .leg-hint { margin-left: auto; font-size: 11px; color: #bbb; font-style: italic; }
+
+  /* MODAL OVERLAY */
+  .overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35);
+    z-index: 100; align-items: center; justify-content: center; padding: 1rem;
+  }
+  .overlay.open { display: flex; }
+
+  .modal {
+    background: #fff; border-radius: 14px; padding: 1.5rem;
+    max-width: 520px; width: 100%; box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+    position: relative; max-height: 85vh; overflow-y: auto;
+  }
+  .modal-close {
+    position: absolute; top: 12px; right: 14px; font-size: 20px; cursor: pointer;
+    color: #aaa; background: none; border: none; line-height: 1;
+  }
+  .modal-close:hover { color: #555; }
+  .modal-badge { font-size: 11px; font-weight: 600; padding: 3px 12px; border-radius: 20px; display: inline-block; margin-bottom: 10px; }
+  .modal-title { font-size: 17px; font-weight: 600; color: #111; margin-bottom: 14px; }
+  .modal-section { margin-bottom: 14px; }
+  .modal-section-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #aaa; margin-bottom: 6px; }
+  .modal-section ul { padding-left: 1.1rem; }
+  .modal-section ul li { font-size: 13px; color: #444; line-height: 1.6; margin-bottom: 4px; }
+  .modal-section p { font-size: 13px; color: #444; line-height: 1.6; }
+  .modal-tag { display: inline-block; font-size: 11px; padding: 2px 9px; border-radius: 10px; margin: 2px 2px 0 0; background: #f2f2f0; border: 1px solid #e0e0dc; color: #666; }
+  .stop-box { background: #fff8f7; border-left: 3px solid #E24B4A; padding: 8px 12px; font-size: 12px; color: #b03030; margin-top: 10px; border-radius: 0 4px 4px 0; }
+  .tip-box { background: #F0F9FF; border-left: 3px solid #378ADD; padding: 8px 12px; font-size: 12px; color: #1a5a8a; margin-top: 10px; border-radius: 0 4px 4px 0; }
+
+  footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #ddd; font-size: 11px; color: #bbb; text-align: center; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>KI-gestütztes IR-Framework – Tool-Integration</h1>
+  <p class="subtitle">Transferthesis Christoph Ottiger | Auf jedes Kästchen klicken für Detailinfos</p>
+
+  <!-- ROW: PHASE HEADERS -->
+  <div class="fw-grid">
+    <div class="row-label"></div>
+    <div class="phase-header ph1"><div class="pnum">Phase 1</div><div class="ptitle">Positionierung</div><div class="psub">& Datenraum</div></div>
+    <div class="phase-header ph2"><div class="pnum">Phase 2</div><div class="ptitle">Identifikation</div><div class="psub">& Qualifizierung</div></div>
+    <div class="phase-header ph3"><div class="pnum">Phase 3</div><div class="ptitle">Ansprache</div><div class="psub">& Mittelbeschaffung</div></div>
+    <div class="phase-header ph4"><div class="pnum">Phase 4</div><div class="ptitle">Pflege</div><div class="psub">& Kommunikation</div></div>
+  </div>
+
+  <!-- ROW: TOOLS -->
+  <div class="fw-grid">
+    <div class="row-label">Tools</div>
+    <div class="box" onclick="openModal('notion-master')">Notion (Master-Doc)<div class="info-dot"></div></div>
+    <div class="box" onclick="openModal('clay')">Clay (Research)<div class="info-dot"></div></div>
+    <div class="box" onclick="openModal('hubspot-crm')">HubSpot CRM<div class="info-dot"></div></div>
+    <div class="box" onclick="openModal('notion-portal')">Notion (Investor-Portal)<div class="info-dot"></div></div>
+  </div>
+  <div class="fw-grid">
+    <div class="row-label"></div>
+    <div class="box" onclick="openModal('docsend-datenraum')">Docsend (Datenraum)<div class="info-dot"></div></div>
+    <div class="box" onclick="openModal('linkedin')">LinkedIn SN<div class="info-dot"></div></div>
+    <div class="box" onclick="openModal('docsend-analytics')">Docsend Analytics<div class="info-dot"></div></div>
+    <div class="box" onclick="openModal('mailchimp')">Mailchimp / HubSpot<div class="info-dot"></div></div>
+  </div>
+  <div class="fw-grid">
+    <div class="row-label"></div>
+    <div class="box" onclick="openModal('gdrive')">Google Drive<div class="info-dot"></div></div>
+    <div class="box" onclick="openModal('investiere')">Investiere.ch / SECA<div class="info-dot"></div></div>
+    <div class="box" onclick="openModal('calendly')">Calendly<div class="info-dot"></div></div>
+    <div class="box" onclick="openModal('luma')">Luma (Events / GV)<div class="info-dot"></div></div>
+  </div>
+
+  <!-- SEPARATOR -->
+  <div style="border-top:1px dashed #ddd;margin:10px 0;"></div>
+
+  <!-- ROW: KI -->
+  <div class="fw-grid">
+    <div class="row-label">KI-Einsatz (Claude)</div>
+    <div class="box ki-box ki1" onclick="openModal('ki1')">Konsistenz<div class="box-sub">Narrativ-Check</div><div class="info-dot"></div></div>
+    <div class="box ki-box ki2" onclick="openModal('ki2')">Matching<div class="box-sub">Scoring & Priorisierung</div><div class="info-dot"></div></div>
+    <div class="box ki-box ki3" onclick="openModal('ki3')">Personalisierung<div class="box-sub">Mail-Drafts / Q&A</div><div class="info-dot"></div></div>
+    <div class="box ki-box ki4" onclick="openModal('ki4')">Automatisierung<div class="box-sub">Update-Drafts / GV</div><div class="info-dot"></div></div>
+  </div>
+
+  <!-- SEPARATOR -->
+  <div style="border-top:1px dashed #ddd;margin:10px 0;"></div>
+
+  <!-- ROW: OUTPUT -->
+  <div class="fw-grid">
+    <div class="row-label">Output</div>
+    <div class="box out1" onclick="openModal('out1')">Datenraum<div class="box-sub">Master-Narrativ</div><div class="info-dot"></div></div>
+    <div class="box out2" onclick="openModal('out2')">Shortlist<div class="box-sub">Qualifizierte Investoren</div><div class="info-dot"></div></div>
+    <div class="box out3" onclick="openModal('out3')">Pipeline<div class="box-sub">Aktive Gespräche</div><div class="info-dot"></div></div>
+    <div class="box out4" onclick="openModal('out4')">Investor-Portal<div class="box-sub">Vertrauen & Bindung</div><div class="info-dot"></div></div>
+  </div>
+
+  <!-- SEPARATOR -->
+  <div style="border-top:1px dashed #ddd;margin:10px 0;"></div>
+
+  <!-- BASE ROW -->
+  <div class="base-grid">
+    <div class="row-label">Basis</div>
+    <div class="base-box" onclick="openModal('notion-basis')">
+      <div class="bt">Notion – Single Source of Truth (alle Phasen)</div>
+      <div class="bs">Master-Narrativ · Investor-Portal · Sales Knowledge Base</div>
+    </div>
+    <div class="base-box" onclick="openModal('hubspot-basis')">
+      <div class="bt">HubSpot CRM – Pipeline-Tracking (Phase 2–4)</div>
+      <div class="bs">Investoren-Status · Gesprächshistorie · Follow-up-Logik</div>
+    </div>
+  </div>
+
+  <!-- LEGEND -->
+  <div class="legend">
+    <span><span class="legend-dot" style="background:#E1F5EE;border-color:#0F6E56;"></span>Phase 1</span>
+    <span><span class="legend-dot" style="background:#E6F1FB;border-color:#185FA5;"></span>Phase 2</span>
+    <span><span class="legend-dot" style="background:#FAEEDA;border-color:#854F0B;"></span>Phase 3</span>
+    <span><span class="legend-dot" style="background:#EEEDFE;border-color:#534AB7;"></span>Phase 4</span>
+    <span class="leg-hint">Tool-Auswahl vorläufig – wird nach Interviews angepasst</span>
+  </div>
+
+  <footer>Christoph Ottiger | Transferthesis CAS HSG DIBT 11 | KI-gestützte Investor Relations für Schweizer Startups</footer>
+</div>
+
+<!-- MODAL -->
+<div class="overlay" id="overlay" onclick="closeModalOutside(event)">
+  <div class="modal" id="modal">
+    <button class="modal-close" onclick="closeModal()">×</button>
+    <div id="modal-content"></div>
+  </div>
+</div>
+
+<script>
+const data = {
+  'notion-master': {
+    badge: ['#E1F5EE','#085041','Phase 1 – Tool'],
+    title: 'Notion als Master-Dokument',
+    sections: [
+      { label: 'Funktion', type: 'list', items: [
+        'Single Source of Truth: alle Kerninhalte zentral und aktuell',
+        'Struktur: Problem, Lösung, Markt (TAM/SAM/SOM), Team, Finanzierung, FAQ',
+        'Sub-Pages für Ableitungen: One-Pager, Executive Summary, Investor-FAQ',
+        'Synced Blocks: Kennzahlen einmal pflegen – überall aktuell'
+      ]},
+      { label: 'Zugriffsebenen', type: 'list', items: [
+        'Öffentlich: per Link teilbar, kein Login',
+        'Investor: per Link, nur lesend',
+        'Aktionäre: per E-Mail-Einladung, mit Login'
+      ]},
+      { label: 'KI-Verknüpfung', type: 'p', text: 'Master-Narrativ + One-Pager in Claude einfügen → Konsistenzprüfung auf Widersprüche und Lücken. Das ist der Stopp-Punkt vor Phase 2.' }
+    ],
+    tip: 'Kostenloser Notion Free-Plan reicht für den PoC vollständig aus.'
+  },
+  'docsend-datenraum': {
+    badge: ['#E1F5EE','#085041','Phase 1 – Tool'],
+    title: 'Docsend – Datenraum & Analytics',
+    sections: [
+      { label: 'Funktion', type: 'list', items: [
+        'Dokumente sicher teilen mit Zugriffssteuerung (NDA-Gate möglich)',
+        'Versionsmanagement: immer die aktuelle Version im Link',
+        'Analytics: wer öffnet das Dokument, wie lange, welche Seite',
+        'Ideal für Pitch Deck, Finanzplan, Executive Summary'
+      ]},
+      { label: 'Warum es wichtig ist', type: 'p', text: 'Gründer wissen, wer sich wirklich mit dem Deck beschäftigt hat – und können den Follow-up gezielt einsetzen. Slide 7 wird kaum gelesen? Inhalt überarbeiten.' }
+    ],
+    tip: 'Kosten: ab ca. $45/Monat. Für den PoC reicht der 14-Tage-Trial.'
+  },
+  'gdrive': {
+    badge: ['#E1F5EE','#085041','Phase 1 – Tool'],
+    title: 'Google Drive – Versionierung',
+    sections: [
+      { label: 'Funktion', type: 'list', items: [
+        'Archiv aller Dokumentenversionen (Deck v1, v2, v3 etc.)',
+        'Interne Zusammenarbeit im Team',
+        'Backup-Ebene für alle Materialien',
+        'Nicht für den Investor-Zugang – dafür Docsend oder Notion'
+      ]},
+      { label: 'Rolle im Framework', type: 'p', text: 'Google Drive ist das interne Archiv. Investoren sehen es nie – sie bekommen immer den kontrollierten Zugang über Docsend oder das Notion-Portal.' }
+    ]
+  },
+  'clay': {
+    badge: ['#E6F1FB','#0C447C','Phase 2 – Tool'],
+    title: 'Clay – Investor Research & Datenanreicherung',
+    sections: [
+      { label: 'Funktion', type: 'list', items: [
+        'Automatische Datenanreicherung: LinkedIn, Website, CrunchBase etc.',
+        'Investor-Profile aus verschiedenen Quellen zusammenführen',
+        'Filterung nach Ticket-Grösse, Branche, Geografie',
+        'Export in CRM (HubSpot oder Notion)'
+      ]},
+      { label: 'Einschränkung', type: 'p', text: 'Clay ist mächtig, hat aber eine Lernkurve und ist für sehr frühe Startups preislich schwer zu rechtfertigen. Im Framework als "fortgeschrittene Option" positioniert.' }
+    ],
+    stop: 'Clay ist ein Research-Tool – nie für automatisierten Outreach nutzen. KI-Massen-Nachrichten zerstören Vertrauen bei Privatinvestoren.'
+  },
+  'linkedin': {
+    badge: ['#E6F1FB','#0C447C','Phase 2 – Tool'],
+    title: 'LinkedIn Sales Navigator',
+    sections: [
+      { label: 'Funktion', type: 'list', items: [
+        'Erweiterte Suche nach Investoren-Profilen (Branche, Region, Rolle)',
+        'Warm-Introduction-Potenzial identifizieren (gemeinsame Kontakte)',
+        'Netzwerk-Analyse: wer kennt wen',
+        'Alerts bei Profiländerungen relevanter Personen'
+      ]},
+      { label: 'Schweizer Kontext', type: 'p', text: 'Ergänzend zu Investiere.ch und SECA – besonders nützlich für Family-Office-Kontakte und Business Angels, die nicht auf Plattformen gelistet sind.' }
+    ],
+    tip: 'Sales Navigator kostet ca. $100/Monat. Alternative: Standard LinkedIn + manuelle Suche reicht für viele Frühphasen-Startups.'
+  },
+  'investiere': {
+    badge: ['#E6F1FB','#0C447C','Phase 2 – Tool'],
+    title: 'Investiere.ch / SECA',
+    sections: [
+      { label: 'Investiere.ch', type: 'list', items: [
+        'Schweizer Crowdinvesting-Plattform für Startups',
+        'Zugang zu registrierten Privatinvestoren mit bekannten Ticket-Grössen',
+        'Öffentliche Kampagnen als Sichtbarkeits-Kanal',
+        'Direkter Fit für CHF 10k–100k Ticket-Bereich'
+      ]},
+      { label: 'SECA', type: 'list', items: [
+        'Swiss Private Equity & Corporate Finance Association',
+        'Netzwerk institutioneller und semi-institutioneller Investoren',
+        'Jährliches Yearbook mit Marktdaten als Theorie-Quelle',
+        'Events und Netzwerkanlässe als Direktkanal'
+      ]}
+    ]
+  },
+  'hubspot-crm': {
+    badge: ['#FAEEDA','#633806','Phase 3 – Tool'],
+    title: 'HubSpot CRM – Pipeline-Tracking',
+    sections: [
+      { label: 'Funktion', type: 'list', items: [
+        'Investoren-Status verwalten: Identifiziert → Kontaktiert → Im Gespräch → Zugesagt',
+        'Gesprächshistorie und E-Mail-Tracking',
+        'Follow-up-Erinnerungen automatisch setzen',
+        'Dashboard: Übersicht über die gesamte Fundraising-Pipeline'
+      ]},
+      { label: 'Für Frühphasen-Startups', type: 'p', text: 'Die kostenlose HubSpot-Version reicht für die meisten Frühphasen-Startups vollständig aus. Alternative: Notion-Datenbank als leichtgewichtiges CRM.' }
+    ],
+    tip: 'Kostenlose Version: bis zu 1 Million Kontakte, Pipeline-Management, E-Mail-Templates inklusive.'
+  },
+  'docsend-analytics': {
+    badge: ['#FAEEDA','#633806','Phase 3 – Tool'],
+    title: 'Docsend Analytics – Follow-up-Trigger',
+    sections: [
+      { label: 'Was Docsend zeigt', type: 'list', items: [
+        'Wer hat das Deck geöffnet (E-Mail des Lesers)',
+        'Wie lange wurde welche Seite gelesen',
+        'Wann wurde das Dokument zuletzt geöffnet',
+        'Wie viele Personen haben es insgesamt angeschaut'
+      ]},
+      { label: 'KI-Verknüpfung', type: 'p', text: 'Docsend-Daten als Input für Claude: "Investor X hat Slide 3 (Markt) 4 Minuten gelesen, Slide 7 (Finanzen) nur 20 Sekunden. Schreib einen Follow-up-Draft, der auf die Marktfrage eingeht und die Finanzzahlen erklärt."' }
+    ]
+  },
+  'calendly': {
+    badge: ['#FAEEDA','#633806','Phase 3 – Tool'],
+    title: 'Calendly – Meeting-Scheduling',
+    sections: [
+      { label: 'Funktion', type: 'list', items: [
+        'Automatisches Scheduling ohne E-Mail-Ping-Pong',
+        'Verschiedene Meeting-Typen (30 Min. Intro, 60 Min. Deep Dive)',
+        'Kalender-Integration (Google, Outlook)',
+        'Automatische Bestätigungen und Erinnerungen'
+      ]},
+      { label: 'Im IR-Kontext', type: 'p', text: 'Spart Zeit in Phase 3 erheblich. Nach dem Erstmail mit Docsend-Deck-Link direkt den Calendly-Link für ein 30-Minuten-Gespräch anhängen.' }
+    ],
+    tip: 'Kostenloser Plan reicht. Wichtig: Einen professionellen Link-Namen wählen – z.B. calendly.com/healthflow/intro'
+  },
+  'notion-portal': {
+    badge: ['#EEEDFE','#3C3489','Phase 4 – Tool'],
+    title: 'Notion – Investor-Portal',
+    sections: [
+      { label: 'Was das Portal zeigt', type: 'list', items: [
+        'Aktuelle KPIs: ARR, Kunden, Runway, NPS',
+        'Meilensteine & Roadmap (erreicht / in Arbeit / geplant)',
+        'Update-Archiv: alle Quartals-Updates als PDFs',
+        'Dokumente mit Zugriffsebenen (Öffentlich / Investor / Aktionäre)',
+        'Nächste Termine: GV, Informationsanlässe, Updates'
+      ]},
+      { label: 'Umsetzung', type: 'p', text: 'Keine Eigenentwicklung nötig. Notion-Page mit geschütztem Link (nur lesend) reicht vollständig aus. Für Dokumente Docsend-Links einbetten.' }
+    ],
+    tip: 'Das Portal funktioniert als "always-on" Kommunikationskanal – Investoren können jederzeit den aktuellen Stand abrufen, ohne dass der Gründer laufend E-Mails schreiben muss.'
+  },
+  'mailchimp': {
+    badge: ['#EEEDFE','#3C3489','Phase 4 – Tool'],
+    title: 'Mailchimp / HubSpot – Investor-Updates',
+    sections: [
+      { label: 'Funktion', type: 'list', items: [
+        'Strukturierte Quartals-Updates an alle Investoren gleichzeitig',
+        'Öffnungsraten und Klicktracking',
+        'E-Mail-Templates für wiederkehrende Formate',
+        'Segmentierung: verschiedene Listen für Investoren, Interessierte, Aktionäre'
+      ]},
+      { label: 'Automatisierung vs. Persönlichkeit', type: 'p', text: 'Quartals-Updates können automatisiert versendet werden – aber der Eröffnungssatz bleibt immer persönlich. Kein reines Template ohne persönliche Note.' }
+    ]
+  },
+  'luma': {
+    badge: ['#EEEDFE','#3C3489','Phase 4 – Tool'],
+    title: 'Luma – Events & Generalversammlung',
+    sections: [
+      { label: 'Funktion', type: 'list', items: [
+        'Event-Einladungen mit RSVP und Gästeliste',
+        'Automatische Erinnerungen vor dem Event',
+        'GV-Einladungen formal und professionell versenden',
+        'Nachbearbeitung: Protokoll und Materialien nachsenden'
+      ]},
+      { label: 'GV-Kontext', type: 'p', text: 'Ordentliche und ausserordentliche GV sind gesetzliche Pflicht (OR). Luma reduziert den Organisationsaufwand erheblich – von der Einladung bis zur Anwesenheitsliste.' }
+    ],
+    tip: 'Alternative: Eventbrite. Für kleinere GVs reicht auch ein professionelles Kalender-Invite mit PDF-Einladung.'
+  },
+  'ki1': {
+    badge: ['#E1F5EE','#085041','KI – Phase 1'],
+    title: 'KI-Einsatz Phase 1: Konsistenz & Narrativ-Check',
+    sections: [
+      { label: 'Was Claude konkret macht', type: 'list', items: [
+        'Vergleich Master-Narrativ vs. One-Pager: Widersprüche identifizieren',
+        'Lückenanalyse: Welche Argumente fehlen im Deck, die im Master vorhanden sind?',
+        'Drafts erstellen: Executive Summary, FAQ, Investorenpräsentation',
+        'Sprache prüfen: Ist das Narrativ klar, präzise, nicht übertrieben?'
+      ]},
+      { label: 'Beispiel-Prompt', type: 'p', text: '"Hier ist unser Master-Narrativ [einfügen] und unser One-Pager [einfügen]. Vergleiche beide. Wo gibt es inhaltliche Widersprüche oder fehlende Argumente im One-Pager?"' }
+    ],
+    stop: 'Stopp-Punkt: Wenn die Strategie unklar ist, hilft KI nicht. Erst Strategie klären – dann KI einsetzen. KI kann keine fehlende Strategie ersetzen.'
+  },
+  'ki2': {
+    badge: ['#E6F1FB','#0C447C','KI – Phase 2'],
+    title: 'KI-Einsatz Phase 2: Matching & Scoring',
+    sections: [
+      { label: 'Was Claude konkret macht', type: 'list', items: [
+        'Investor-Profile mit Startup-Kriterien abgleichen',
+        'Longlist priorisieren: wer passt am besten zu Branche, Ticket, Risikoprofil?',
+        'Netzwerkanalyse: Warm-Introduction-Potenzial identifizieren',
+        'Scoring-Matrix aufbauen und gewichten'
+      ]},
+      { label: 'Beispiel-Prompt', type: 'p', text: '"Hier sind 20 Investor-Profile [aus Clay/LinkedIn export]. Unser Startup ist ein Digital Health B2B SaaS, Seed-Phase, Ticket CHF 25k–75k. Score und ranke die Investoren nach Fit. Begründe die Top 5."' }
+    ],
+    stop: 'KI-Massen-Outreach zerstört Vertrauen bei Privatinvestoren. KI nur für Research und Priorisierung – nie für die Erstkommunikation.'
+  },
+  'ki3': {
+    badge: ['#FAEEDA','#633806','KI – Phase 3'],
+    title: 'KI-Einsatz Phase 3: Personalisierung & Outreach',
+    sections: [
+      { label: 'Was Claude konkret macht', type: 'list', items: [
+        'Personalisierte Erstmail-Drafts je Investorenprofil und Kanal',
+        'Q&A-Vorbereitung: häufige Investorfragen antizipieren und beantworten',
+        'Follow-up-Texte basierend auf Docsend-Analytics (welche Slides?)',
+        'Pitch-Vorbereitung: Gegenargumente und schwierige Fragen simulieren'
+      ]},
+      { label: 'Beispiel-Prompt', type: 'p', text: '"Schreib eine Erstmail an Investor X [Profil]. Er investiert in Digital Health, typisches Ticket CHF 50k. Warm Introduction über Y. Mail soll 5 Sätze nicht überschreiten. Anhang: One-Pager."' }
+    ],
+    tip: 'Der Draft von Claude ist ein Startpunkt – immer persönlich überarbeiten und anpassen. Der Gründer muss dahinterstehen, nicht die KI.'
+  },
+  'ki4': {
+    badge: ['#EEEDFE','#3C3489','KI – Phase 4'],
+    title: 'KI-Einsatz Phase 4: Automatisierung & Updates',
+    sections: [
+      { label: 'Was Claude konkret macht', type: 'list', items: [
+        'Quartals-Update-Drafts auf Basis von KPI-Datenpunkten (ARR, Kunden, Runway)',
+        'Narrativ-Konsistenzprüfung: Sales-Materialien vs. Master-Dokument',
+        'GV-Vorbereitung: Traktanden, Protokollvorlagen, FAQ für die Versammlung',
+        'Sentiment-Analyse aus Investoren-Feedback und Antwortmails'
+      ]},
+      { label: 'Beispiel-Prompt', type: 'p', text: '"Hier sind unsere Q1-KPIs: ARR CHF 148k (+34%), 23 Kunden, Runway 14 Monate, NPS 8.2. Schreib ein Quartals-Update an unsere Investoren. Ton: direkt, keine Floskeln, 300 Wörter max."' }
+    ]
+  },
+  'out1': {
+    badge: ['#E1F5EE','#085041','Output Phase 1'],
+    title: 'Ergebnis Phase 1: Datenraum & Master-Narrativ',
+    sections: [
+      { label: 'Was vorliegt', type: 'list', items: [
+        'Master-Narrativ-Dokument: vollständig, intern abgestimmt, versioniert',
+        'Strukturierter Datenraum mit Zugriffsebenen (Docsend oder Notion)',
+        'One-Pager: konsistent mit dem Master, für Erstkontakt geeignet',
+        'Executive Summary: für E-Mail-Outreach in Phase 3',
+        'Investor-FAQ: häufige Fragen mit abgestimmten Antworten'
+      ]},
+      { label: 'Kriterium für Abschluss', type: 'p', text: 'Phase 1 ist abgeschlossen, wenn ein externer Leser aus jedem Dokument dasselbe Bild des Startups bekommt. Erst dann beginnt Phase 2.' }
+    ]
+  },
+  'out2': {
+    badge: ['#E6F1FB','#0C447C','Output Phase 2'],
+    title: 'Ergebnis Phase 2: Qualifizierte Shortlist',
+    sections: [
+      { label: 'Was vorliegt', type: 'list', items: [
+        'Qualifizierte Shortlist: 15–25 Investoren, priorisiert nach Fit',
+        'Scoring-Matrix mit Begründung je Investor',
+        'Warm-Introduction-Map: wer kennt wen im Netzwerk',
+        'Kanal-Zuordnung: wie wird jeder Investor angesprochen?'
+      ]},
+      { label: 'Kriterium für Abschluss', type: 'p', text: 'Shortlist-Kriterien müssen vor der Ansprache fixiert sein – nicht während. Wer auf die Liste kommt, hat einen definierten Mindest-Fit mit Ticket, Branche und Geografie.' }
+    ]
+  },
+  'out3': {
+    badge: ['#FAEEDA','#633806','Output Phase 3'],
+    title: 'Ergebnis Phase 3: Aktive Pipeline',
+    sections: [
+      { label: 'Was vorliegt', type: 'list', items: [
+        'Aktive Investor-Pipeline im CRM (HubSpot oder Notion)',
+        'Laufende Gespräche mit klaren Next Steps',
+        'Docsend-Analytics: wer liest, was, wie lange',
+        'Dokumentierte Follow-up-Logik und Gesprächsnotizen'
+      ]},
+      { label: 'Pipeline-Stufen', type: 'list', items: [
+        'Identifiziert → Kontaktiert → Im Gespräch → Term Sheet / Zugesagt → Abgeschlossen'
+      ]}
+    ]
+  },
+  'out4': {
+    badge: ['#EEEDFE','#3C3489','Output Phase 4'],
+    title: 'Ergebnis Phase 4: Investor-Portal & Bindung',
+    sections: [
+      { label: 'Was vorliegt', type: 'list', items: [
+        'Investor-Portal live (Notion, passwortgeschützt)',
+        'Kommunikationskalender: Updates, GV, Events geplant',
+        'Sales-Briefing-Dokument: einheitliches Narrativ für Vertrieb',
+        'GV-Unterlagen: Traktanden, Einladung, Protokollvorlage',
+        'Entscheidungsmatrix: was wird automatisiert, was bleibt persönlich'
+      ]},
+      { label: 'Ziel', type: 'p', text: 'Bestehende Investoren sind jederzeit informiert und fühlen sich eingebunden. Das reduziert Rückfragen, stärkt das Vertrauen und erleichtert Folgeinvestitionen.' }
+    ]
+  },
+  'notion-basis': {
+    badge: ['#f2f2f0','#444','Gemeinsame Basis'],
+    title: 'Notion – Single Source of Truth (alle Phasen)',
+    sections: [
+      { label: 'Warum Notion die Basis ist', type: 'list', items: [
+        'Phase 1: Master-Narrativ und Datenraum-Struktur',
+        'Phase 2: Investoren-Datenbank als leichtgewichtiges CRM',
+        'Phase 3: Gesprächsnotizen, Pipeline (falls kein HubSpot)',
+        'Phase 4: Investor-Portal und Sales Knowledge Base'
+      ]},
+      { label: 'Kernvorteil', type: 'p', text: 'Alle Phasen greifen auf denselben Inhaltsstand zu. Synced Blocks verhindern, dass verschiedene Dokumente verschiedene Zahlen zeigen.' }
+    ],
+    tip: 'Notion Free-Plan reicht für Frühphasen-Startups vollständig aus. Kostenpflichtige Version erst ab Team-Collaboration mit vielen Personen nötig.'
+  },
+  'hubspot-basis': {
+    badge: ['#f2f2f0','#444','Gemeinsame Basis'],
+    title: 'HubSpot CRM – Pipeline-Tracking (Phase 2–4)',
+    sections: [
+      { label: 'Was HubSpot übernimmt', type: 'list', items: [
+        'Investor-Kontakte zentral verwalten',
+        'Pipeline-Status und Deal-Tracking',
+        'E-Mail-Sequenzen und Follow-up-Automatisierung',
+        'Reporting: Öffnungsraten, Klicks, Antworten'
+      ]},
+      { label: 'Alternative', type: 'p', text: 'Notion-Datenbank kann HubSpot für sehr frühe Startups (< 30 Investoren-Kontakte) ersetzen. HubSpot lohnt sich ab dem Moment, wo die Pipeline zu komplex für manuelle Verwaltung wird.' }
+    ],
+    tip: 'HubSpot Free: bis 1 Mio. Kontakte, 5 E-Mail-Templates, Pipeline-Management. Für Frühphasen-IR ausreichend.'
+  }
+};
+
+function openModal(key) {
+  const d = data[key];
+  if (!d) return;
+  let html = '';
+  html += `<span class="modal-badge" style="background:${d.badge[0]};color:${d.badge[1]}">${d.badge[2]}</span>`;
+  html += `<div class="modal-title">${d.title}</div>`;
+  d.sections.forEach(s => {
+    html += `<div class="modal-section"><div class="modal-section-label">${s.label}</div>`;
+    if (s.type === 'list') {
+      html += '<ul>' + s.items.map(i => `<li>${i}</li>`).join('') + '</ul>';
+    } else if (s.type === 'p') {
+      html += `<p>${s.text}</p>`;
+    }
+    html += '</div>';
+  });
+  if (d.stop) html += `<div class="stop-box">⚠ ${d.stop}</div>`;
+  if (d.tip) html += `<div class="tip-box">💡 ${d.tip}</div>`;
+  document.getElementById('modal-content').innerHTML = html;
+  document.getElementById('overlay').classList.add('open');
+}
+function closeModal() { document.getElementById('overlay').classList.remove('open'); }
+function closeModalOutside(e) { if (e.target === document.getElementById('overlay')) closeModal(); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+</script>
+</body>
+</html>
